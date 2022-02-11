@@ -475,7 +475,7 @@ public class AirplaneTransformation : MonoBehaviour
         var endPos = pos + normal;
         vertexNormal.SetPosition(1, endPos);
         
-        vertexNormalTip.SetPosition(0, endPos + normal*0.01f);
+        vertexNormalTip.SetPosition(0, endPos + normal*0.02f);
         vertexNormalTip.SetPosition(1, endPos - normal*0.1f);
         return new List<LineRenderer> { vertexNormal, vertexNormalTip };
     }
