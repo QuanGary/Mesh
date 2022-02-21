@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
 using UnityEditor;
 using UnityEngine;
 
@@ -40,7 +41,7 @@ public class AirplaneTransformation : MonoBehaviour
     private List<GameObject> currentAirplaneComponents;
     private List<Mesh> smoothComponents;
     private List<GameObject> flatComponents;
-    private List<GameObject> wireframeComponents;
+    private LinkedList<GameObject> wireframeComponents;
     
     private bool playPlaneAnimation;
     private bool stopAnimation;
@@ -60,13 +61,13 @@ public class AirplaneTransformation : MonoBehaviour
         currentAirplaneComponents = new List<GameObject>();
         smoothComponents = new List<Mesh>();
         flatComponents = new List<GameObject>();
-        wireframeComponents = new List<GameObject>();
+        wireframeComponents = new LinkedList<GameObject>();
         foreach (Transform child in AirplaneSmooth.transform)
         {
             currentAirplaneComponents.Add(child.gameObject);
             Mesh curMesh = child.gameObject.GetComponent<MeshFilter>().mesh;
             smoothComponents.Add(deepCopy(curMesh));
-            wireframeComponents.Add(new GameObject("Wireframe"));
+            // wireframeComponents.Add(new GameObject("Wireframe"));
         }
         
         foreach (Transform child in AirplaneFlat.transform)
@@ -96,7 +97,50 @@ public class AirplaneTransformation : MonoBehaviour
             AirplaneSmooth.transform.rotation = Quaternion.Euler(AirplaneSmooth.transform.eulerAngles.x, 
                 AirplaneSmooth.transform.eulerAngles.y,
                 planeAnimationCurve.Evaluate(animTime));
+        
+        // Smooth Airplane Mat + Wireframe on top
+        if (Input.GetKeyDown("1"))
+        {
+            useSmoothShading();
+            applyMaterial(AirplaneMetalMat, WireFrameMat);
+        } 
+        
+        // Only Wireframe
+        else if (Input.GetKeyDown("2"))
+        {
+            useSmoothShading();
+            applyMaterial(null, WireFrameMat);
+        } 
+        
+        // Flat Diffuse Gray
+        else if (Input.GetKeyDown("3"))
+        {
+            useFlatShading();
+            applyMaterial(GrayDiffuse, null);
+        }
+        
+        // Flat Metal Gray
+        else if (Input.GetKeyDown("4"))
+        {
+            useFlatShading();
+            applyMaterial(GrayMetal, null);
+        }
+        
+        // Smooth Metal Gray
+        else if (Input.GetKeyDown("5"))
+        {
+            useSmoothShading();
+            applyMaterial(GrayMetal, null);
+        } 
+        
+        // Smooth Airplane Mat
+        else if (Input.GetKeyDown("6"))
+        {
+            useSmoothShading();
+            applyMaterial(AirplaneMetalMat, AirplaneMetalMat);
+        }
     }
+
     
     // Play animation in 3 segments
     IEnumerator PlayAnimation(float iniWaitTime)
@@ -127,46 +171,10 @@ public class AirplaneTransformation : MonoBehaviour
     /// <returns></returns>
     private IEnumerator showSegment1(float iniWaitTime)
     {
-        //////// Show wireframe on top of material
+        //////// Play airplane animation for X seconds
         yield return new WaitForSeconds(iniWaitTime); //TODO: Change initial wait time to begin action
-        applyMaterial(AirplaneMetalMat, WireFrameMat);  
         
-        
-        //////// Show total wireframe
-        yield return new WaitForSeconds(iniWaitTime); //TODO: Change initial wait time to begin action
-        applyMaterial(null, WireFrameMat);
-        
-        //////// Display FLAT diffuse gray
-        yield return new WaitForSeconds(iniWaitTime); //TODO: Change initial wait time to begin action
-        for (int i = 0; i < flatComponents.Count; i++)
-        {
-            var flatComponent = flatComponents[i];
-            currentAirplaneComponents[i].GetComponent<MeshFilter>().mesh = flatComponent.GetComponent<MeshFilter>().mesh;
-            // currentAirplaneComponents[i].GetComponent<MeshRenderer>().materials = flatComponent.GetComponent<MeshRenderer>().materials;
-        }
-        applyMaterial(GrayDiffuse, null);
-        
-        //////// Display FLAT metal gray
-        yield return new WaitForSeconds(iniWaitTime); //TODO: Change initial wait time to begin action
-        applyMaterial(GrayMetal, null);
-        
-        
-        //////// Display SMOOTH diffuse gray
-        yield return new WaitForSeconds(iniWaitTime); //TODO: Change initial wait time to begin action
-        for (int i = 0; i < currentAirplaneComponents.Count; i++)
-        {
-            currentAirplaneComponents[i].GetComponent<MeshFilter>().mesh =
-                deepCopy(smoothComponents[i]);
-        }
-        applyMaterial(GrayMetal, null);
-
-        
-        //////// Display SMOOTH default airplane material
-        yield return new WaitForSeconds(iniWaitTime); //TODO: Change initial wait time to begin action
-        applyMaterial(AirplaneMetalMat, AirplaneMetalMat);
-        
-        
-        //////// Play animation until airplane returns to initial position
+        //////// Make sure the airplane animation ends when airplane returns to initial position
         float animLength = planeAnimationCurve.keys[planeAnimationCurve.length - 1].time;
         yield return new WaitForSeconds(animLength - animTime % animLength);
         playPlaneAnimation = false;
@@ -174,12 +182,8 @@ public class AirplaneTransformation : MonoBehaviour
         
         //////// Display FLAT diffuse gray
         yield return new WaitForSeconds(iniWaitTime); //TODO: Change initial wait time to begin action
-        for (int i = 0; i < flatComponents.Count; i++)
-         {
-             var flatComponent = flatComponents[i];
-             currentAirplaneComponents[i].GetComponent<MeshFilter>().mesh = flatComponent.GetComponent<MeshFilter>().mesh;
-             currentAirplaneComponents[i].GetComponent<MeshRenderer>().materials = flatComponent.GetComponent<MeshRenderer>().materials;
-         }
+        useFlatShading();
+        applyMaterial(GrayDiffuse, null);
     }
 
 
@@ -291,12 +295,7 @@ public class AirplaneTransformation : MonoBehaviour
         
         ////////  Fade in airplane
         yield return new WaitForSeconds(iniWaitTime); //TODO: Change initial wait time to begin action
-        for (int i = 0; i < currentAirplaneComponents.Count; i++)
-        {
-            var flatComponent = flatComponents[i];
-        
-            currentAirplaneComponents[i].GetComponent<MeshFilter>().mesh = flatComponent.GetComponent<MeshFilter>().mesh;
-        }
+        useFlatShading();
     }
     
     // TODO: Modify segment 3's animation
@@ -377,11 +376,7 @@ public class AirplaneTransformation : MonoBehaviour
         
         //////// Turn on smoother look
         yield return new WaitForSeconds(iniWaitTime); //TODO: Change initial wait time to begin action
-        for (int i = 0; i < currentAirplaneComponents.Count; i++)
-        {
-            Mesh m = deepCopy(smoothComponents[i]);
-            currentAirplaneComponents[i].GetComponent<MeshFilter>().mesh = m;
-        }
+        useSmoothShading();
         foreach (var comp in currentAirplaneComponents)
         {
             Mesh m = comp.GetComponent<MeshFilter>().mesh;
@@ -416,10 +411,7 @@ public class AirplaneTransformation : MonoBehaviour
         
         //////// Fade in rest of model. Current material is smooth metal gray
         yield return new WaitForSeconds(iniWaitTime); //TODO: Change initial wait time to begin action
-        for (int i = 0; i < currentAirplaneComponents.Count; i++)
-        {
-            currentAirplaneComponents[i].GetComponent<MeshFilter>().mesh = deepCopy(smoothComponents[i]);
-        }
+        useSmoothShading();
         
         //////// Zoom out
         yield return new WaitForSeconds(iniWaitTime); //TODO: Change initial wait time to begin action 
@@ -467,7 +459,14 @@ public class AirplaneTransformation : MonoBehaviour
             
             if (mat2 != null && mat2.name == "Wireframe")
             {
-                GameObject wireframeObject = wireframeComponents[i++];
+                if (wireframeComponents.Count >= 10)
+                {
+                    GameObject toRemove = wireframeComponents.Last.Value;
+                    Destroy(toRemove);
+                    wireframeComponents.RemoveLast();
+                }
+                wireframeComponents.AddFirst(new GameObject("Wireframe"));
+                GameObject wireframeObject = wireframeComponents.First.Value;
                 wireframeObject.transform.SetParent(component.transform);
                 wireframeObject.transform.localPosition = Vector3.zero;
                 wireframeObject.transform.localScale = new Vector3(1, 1, 1);
@@ -477,25 +476,48 @@ public class AirplaneTransformation : MonoBehaviour
                 {
                     wireframeObject.AddComponent<MeshRenderer>();
                     wireframeObject.AddComponent<MeshFilter>();
-                    wireframeObject.GetComponent<MeshFilter>().sharedMesh = bakedMesh;
+                    wireframeObject.GetComponent<MeshFilter>().sharedMesh = deepCopy(bakedMesh);
                 }
                
                 Material[] mats = wireframeObject.GetComponent<MeshRenderer>().materials;
                 mats[0] = mat2;
                 wireframeObject.GetComponent<MeshRenderer>().materials = mats;
+                Debug.Log(wireframeComponents.Count);
+                
             }
             else
             {
-                GameObject wireframeObject = wireframeComponents[i++];
-                Destroy(wireframeObject);
-                component.GetComponent<MeshRenderer>().enabled = true;
-                compMats[0] = mat1;
-                compMats[1] = mat2;
-                component.GetComponent<MeshRenderer>().materials = compMats;
+                if (wireframeComponents.Count != 0)
+                {
+                    GameObject wireframeObject = wireframeComponents.First.Value;
+                    Destroy(wireframeObject);
+                    wireframeComponents.Remove(wireframeObject);
+                    Debug.Log(wireframeComponents.Count);
+                }
             }
-            
+            compMats[0] = mat1;
+            compMats[1] = mat2;
+            component.GetComponent<MeshRenderer>().materials = compMats;
         }
     }
+    
+    private void useSmoothShading()
+    {
+        for (int i = 0; i < smoothComponents.Count; i++)
+        {
+            currentAirplaneComponents[i].GetComponent<MeshFilter>().mesh = deepCopy(smoothComponents[i]);
+        }
+    }
+    
+    private void useFlatShading()
+    {
+        for (int i = 0; i < flatComponents.Count; i++)
+        {
+            var flatComponent = flatComponents[i];
+            currentAirplaneComponents[i].GetComponent<MeshFilter>().mesh = flatComponent.GetComponent<MeshFilter>().mesh;
+        }
+    }
+    
     private Vector3 getFaceNormal(Vector3 p1, Vector3 p2, Vector3 p3)
     {
         var ba = p2 - p1;
