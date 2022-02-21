@@ -40,12 +40,17 @@ public class AirplaneTransformation : MonoBehaviour
     private List<GameObject> currentAirplaneComponents;
     private List<Mesh> smoothComponents;
     private List<GameObject> flatComponents;
+    private List<GameObject> wireframeComponents;
     
     private bool playPlaneAnimation;
     private bool stopAnimation;
     private float animTime;
-    
-    
+
+    void OnPostRender()
+    {
+        UnityEngine.GL.wireframe = true;
+
+    }
     // Start is called before the first frame update
     void Start()
     {
@@ -55,11 +60,13 @@ public class AirplaneTransformation : MonoBehaviour
         currentAirplaneComponents = new List<GameObject>();
         smoothComponents = new List<Mesh>();
         flatComponents = new List<GameObject>();
+        wireframeComponents = new List<GameObject>();
         foreach (Transform child in AirplaneSmooth.transform)
         {
             currentAirplaneComponents.Add(child.gameObject);
             Mesh curMesh = child.gameObject.GetComponent<MeshFilter>().mesh;
             smoothComponents.Add(deepCopy(curMesh));
+            wireframeComponents.Add(new GameObject("Wireframe"));
         }
         
         foreach (Transform child in AirplaneFlat.transform)
@@ -127,7 +134,7 @@ public class AirplaneTransformation : MonoBehaviour
         
         //////// Show total wireframe
         yield return new WaitForSeconds(iniWaitTime); //TODO: Change initial wait time to begin action
-        applyMaterial(WireFrameMat, WireFrameMat);
+        applyMaterial(null, WireFrameMat);
         
         //////// Display FLAT diffuse gray
         yield return new WaitForSeconds(iniWaitTime); //TODO: Change initial wait time to begin action
@@ -135,9 +142,9 @@ public class AirplaneTransformation : MonoBehaviour
         {
             var flatComponent = flatComponents[i];
             currentAirplaneComponents[i].GetComponent<MeshFilter>().mesh = flatComponent.GetComponent<MeshFilter>().mesh;
-            currentAirplaneComponents[i].GetComponent<MeshRenderer>().materials = flatComponent.GetComponent<MeshRenderer>().materials;
+            // currentAirplaneComponents[i].GetComponent<MeshRenderer>().materials = flatComponent.GetComponent<MeshRenderer>().materials;
         }
-        
+        applyMaterial(GrayDiffuse, null);
         
         //////// Display FLAT metal gray
         yield return new WaitForSeconds(iniWaitTime); //TODO: Change initial wait time to begin action
@@ -445,12 +452,48 @@ public class AirplaneTransformation : MonoBehaviour
     }
     private void applyMaterial(Material mat1, Material mat2)
     {
+        int i = 0;
         foreach (var component in currentAirplaneComponents)
         {
-            Material[] mats = component.GetComponent<MeshRenderer>().materials;
-            mats[0] = mat1;
-            mats[1] = mat2;
-            component.GetComponent<MeshRenderer>().materials = mats;
+            Material[] compMats = component.GetComponent<MeshRenderer>().materials;
+            if (mat1 == null)
+            {
+                component.GetComponent<MeshRenderer>().enabled = false;
+            }
+            else
+            {
+                component.GetComponent<MeshRenderer>().enabled = true;
+            }
+            
+            if (mat2 != null && mat2.name == "Wireframe")
+            {
+                GameObject wireframeObject = wireframeComponents[i++];
+                wireframeObject.transform.SetParent(component.transform);
+                wireframeObject.transform.localPosition = Vector3.zero;
+                wireframeObject.transform.localScale = new Vector3(1, 1, 1);
+                wireframeObject.transform.localRotation = Quaternion.identity;
+                Mesh bakedMesh = BakeMesh(component.GetComponent<MeshFilter>().sharedMesh);
+                if (wireframeObject.GetComponent<MeshRenderer>() == null)
+                {
+                    wireframeObject.AddComponent<MeshRenderer>();
+                    wireframeObject.AddComponent<MeshFilter>();
+                    wireframeObject.GetComponent<MeshFilter>().sharedMesh = bakedMesh;
+                }
+               
+                Material[] mats = wireframeObject.GetComponent<MeshRenderer>().materials;
+                mats[0] = mat2;
+                wireframeObject.GetComponent<MeshRenderer>().materials = mats;
+            }
+            else
+            {
+                GameObject wireframeObject = wireframeComponents[i++];
+                Destroy(wireframeObject);
+                component.GetComponent<MeshRenderer>().enabled = true;
+                compMats[0] = mat1;
+                compMats[1] = mat2;
+                component.GetComponent<MeshRenderer>().materials = compMats;
+            }
+            
         }
     }
     private Vector3 getFaceNormal(Vector3 p1, Vector3 p2, Vector3 p3)
@@ -532,5 +575,61 @@ public class AirplaneTransformation : MonoBehaviour
         EdgeLine2.SetPosition(1, new Vector3(-1000,-1000,-1000));
         EdgeTip2.SetPosition(0, new Vector3(-1000,-1000,-1000));
         EdgeTip2.SetPosition(1, new Vector3(-1000,-1000,-1000));
+    }
+    
+    private Mesh BakeMesh(Mesh originalMesh)
+    {
+        var maxVerts = 2147483647;
+        var meshNor = originalMesh.normals;
+        var meshTris = originalMesh.triangles;
+        var meshVerts = originalMesh.vertices;		
+        var boneW = originalMesh.boneWeights;		
+        var vertsNeeded = meshTris.Length;
+        if (vertsNeeded > maxVerts)
+        {	
+            Debug.LogError("The mesh has so many vertices that Unity could not create it!");
+            return null;
+        }
+
+        var resultMesh = new Mesh();
+        resultMesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;		
+        var resultVerts = new Vector3[vertsNeeded];
+        var resultUVs = new Vector2[vertsNeeded];
+        var resultTris = new int[meshTris.Length];
+        var resultNor = new Vector3[vertsNeeded];
+        var boneWLen = (boneW.Length > 0) ? vertsNeeded : 0;
+        var resultBW = new BoneWeight[boneWLen];
+
+        for (var i = 0; i < meshTris.Length; i+=3)
+        {
+            resultVerts[i] = meshVerts[meshTris[i]];
+            resultVerts[i+1] = meshVerts[meshTris[i+1]];
+            resultVerts[i+2] = meshVerts[meshTris[i+2]];		
+            resultUVs[i] = new Vector2(0f,0f);
+            resultUVs[i+1] = new Vector2(1f,0f);
+            resultUVs[i+2] = new Vector2(0f,1f);
+            resultTris[i] = i;
+            resultTris[i+1] = i+1;
+            resultTris[i+2] = i+2;
+            resultNor[i] = meshNor[meshTris[i]];
+            resultNor[i+1] = meshNor[meshTris[i+1]];
+            resultNor[i+2] = meshNor[meshTris[i+2]];
+
+            if (resultBW.Length > 0)
+            {
+                resultBW[i] = boneW[meshTris[i]];
+                resultBW[i+1] = boneW[meshTris[i+1]];
+                resultBW[i+2] = boneW[meshTris[i+2]];
+            }
+        }
+
+        resultMesh.vertices = resultVerts;
+        resultMesh.uv = resultUVs;
+        resultMesh.triangles = resultTris;
+        resultMesh.normals = resultNor;
+        resultMesh.bindposes = originalMesh.bindposes;
+        resultMesh.boneWeights = resultBW;
+
+        return resultMesh;
     }
 }
