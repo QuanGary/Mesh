@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -44,7 +45,6 @@ public class AirplaneTransformation : MonoBehaviour
     private LinkedList<GameObject> wireframeComponents;
     
     private bool playPlaneAnimation;
-    private bool stopAnimation;
     private float animTime;
 
     void OnPostRender()
@@ -57,7 +57,6 @@ public class AirplaneTransformation : MonoBehaviour
     {
         // Initialize private variables
         playPlaneAnimation = true;
-        stopAnimation = false;
         currentAirplaneComponents = new List<GameObject>();
         smoothComponents = new List<Mesh>();
         flatComponents = new List<GameObject>();
@@ -81,111 +80,62 @@ public class AirplaneTransformation : MonoBehaviour
         // This means 6 seconds to do both left and right tilts.
         // _ Second parameter: plane tilt angle (in degrees)
         setPlaneAnimation(3, 15); 
-
-        // Initiate the animation.
-        // The "iniWaitTime" is 3 seconds because we want the rendering mode changes
-        // to be synchronized with each plane tilt (which lasts 3 sec as set up right above).
-        StartCoroutine(PlayAnimation(3)); 
         
+
+        
+        initialize();
     }
 
     // Don't have to modify this
     void Update()
     {
-        animTime += Time.deltaTime;
         if (playPlaneAnimation)
+        {
             AirplaneSmooth.transform.rotation = Quaternion.Euler(AirplaneSmooth.transform.eulerAngles.x, 
                 AirplaneSmooth.transform.eulerAngles.y,
                 planeAnimationCurve.Evaluate(animTime));
-        
-        // Smooth Airplane Mat + Wireframe on top
-        if (Input.GetKeyDown("1"))
-        {
-            useSmoothShading();
-            applyMaterial(AirplaneMetalMat, WireFrameMat);
-        } 
-        
-        // Only Wireframe
-        else if (Input.GetKeyDown("2"))
-        {
-            useSmoothShading();
-            applyMaterial(null, WireFrameMat);
-        } 
-        
-        // Flat Diffuse Gray
-        else if (Input.GetKeyDown("3"))
-        {
-            useFlatShading();
-            applyMaterial(GrayDiffuse, null);
+            animTime += Time.deltaTime;
         }
-        
-        // Flat Metal Gray
-        else if (Input.GetKeyDown("4"))
+
+        var input = Input.inputString;
+        switch (input)
         {
-            useFlatShading();
-            applyMaterial(GrayMetal, null);
-        }
-        
-        // Smooth Metal Gray
-        else if (Input.GetKeyDown("5"))
-        {
-            useSmoothShading();
-            applyMaterial(GrayMetal, null);
-        } 
-        
-        // Smooth Airplane Mat
-        else if (Input.GetKeyDown("6"))
-        {
-            useSmoothShading();
-            applyMaterial(AirplaneMetalMat, AirplaneMetalMat);
+            case "1": // Smooth Airplane Mat + Wireframe on top
+                useSmoothShading();
+                applyMaterial(AirplaneMetalMat, WireFrameMat);
+                break;
+            case "2": // Only Wireframe
+                useSmoothShading();
+                applyMaterial(null, WireFrameMat);
+                break;
+            case "3":  // Flat Diffuse Gray
+                useFlatShading();
+                applyMaterial(GrayDiffuse, null);
+                break;
+            case "4": // Flat Metal Gray
+                useFlatShading();
+                applyMaterial(GrayMetal, null);
+                break;
+            case "5": // Smooth Metal Gray
+                useSmoothShading();
+                applyMaterial(GrayMetal, null);
+                break;
+            case "6": // Smooth Airplane Mat
+                useSmoothShading();
+                applyMaterial(AirplaneMetalMat, AirplaneMetalMat);
+                break;
+            case " ": // Play/Stop airplane animation
+                playPlaneAnimation = !playPlaneAnimation;
+                break;
+            case "e": // SEGMENT 2: ZOOM IN 1 TRIANGLE, SHOW VECTORS, and LIGHTING CHANGES
+                StartCoroutine(showSegment2(3));
+                break;
+            case "r": // SEGMENT 3: ZOOM IN 2 TRIANGLES, SHOW INTERPOLATED NORMALS.
+                StartCoroutine(showSegment3(3));
+                break;
         }
     }
-
     
-    // Play animation in 3 segments
-    IEnumerator PlayAnimation(float iniWaitTime)
-    {
-        initialize();
-        
-        ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-        /// SEGMENT 1: CHANGE VARIOUS PLANE RENDERING MODES
-        ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-        yield return showSegment1(iniWaitTime);
- 
-        ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-        /// SEGMENT 2: ZOOM IN 1 TRIANGLE, SHOW VECTORS, and LIGHTING CHANGES
-        ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-        yield return showSegment2(iniWaitTime);
-        
-        ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-        /// SEGMENT 3: ZOOM IN 2 TRIANGLES, SHOW INTERPOLATED NORMALS.
-        ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-        yield return showSegment3(iniWaitTime);
-    }
-
-    // TODO: Modify segment 1's animation
-    /// <summary>
-    /// Show animation for segment 1: CHANGE VARIOUS PLANE RENDERING MODES
-    /// </summary>
-    /// <param name="iniWaitTime">The time to wait before an action begins</param>
-    /// <returns></returns>
-    private IEnumerator showSegment1(float iniWaitTime)
-    {
-        //////// Play airplane animation for X seconds
-        yield return new WaitForSeconds(iniWaitTime); //TODO: Change initial wait time to begin action
-        
-        //////// Make sure the airplane animation ends when airplane returns to initial position
-        float animLength = planeAnimationCurve.keys[planeAnimationCurve.length - 1].time;
-        yield return new WaitForSeconds(animLength - animTime % animLength);
-        playPlaneAnimation = false;
-        
-        
-        //////// Display FLAT diffuse gray
-        yield return new WaitForSeconds(iniWaitTime); //TODO: Change initial wait time to begin action
-        useFlatShading();
-        applyMaterial(GrayDiffuse, null);
-    }
-
 
     // TODO: Modify segment 2's animation
     /// <summary>
@@ -195,8 +145,12 @@ public class AirplaneTransformation : MonoBehaviour
     /// <returns></returns>
     private IEnumerator showSegment2(float iniWaitTime)
     {
+        //////// Display FLAT diffuse gray
+        useFlatShading();
+        applyMaterial(GrayDiffuse, null);
+        yield return new WaitForSeconds(iniWaitTime);
+        
         //////// Animation: Zoom in 1 triangle
-        yield return new WaitForSeconds(iniWaitTime); //TODO: Change initial wait time to begin action
         CameraAnimator.Play("ZoomInTriangleAnim");
         yield return new WaitForSeconds(CameraAnimator.runtimeAnimatorController.animationClips[0].length);
         
@@ -274,7 +228,7 @@ public class AirplaneTransformation : MonoBehaviour
         cameraIcon.SetActive(true);
         cameraIcon.transform.position = p1 + dir * 1.1f;
         
-        //////// Move Ligh
+        //////// Move Light
         yield return new WaitForSeconds(iniWaitTime); //TODO: Change initial wait time to begin action
         lightIcon.SetActive(true);
         LightAnimator.Play("MoveLight2"); // animation is 10s long
@@ -482,7 +436,6 @@ public class AirplaneTransformation : MonoBehaviour
                 Material[] mats = wireframeObject.GetComponent<MeshRenderer>().materials;
                 mats[0] = mat2;
                 wireframeObject.GetComponent<MeshRenderer>().materials = mats;
-                Debug.Log(wireframeComponents.Count);
                 
             }
             else
@@ -492,7 +445,6 @@ public class AirplaneTransformation : MonoBehaviour
                     GameObject wireframeObject = wireframeComponents.First.Value;
                     Destroy(wireframeObject);
                     wireframeComponents.Remove(wireframeObject);
-                    Debug.Log(wireframeComponents.Count);
                 }
             }
             compMats[0] = mat1;
