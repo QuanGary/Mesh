@@ -56,7 +56,7 @@ public class AirplaneTransformation : MonoBehaviour
     void Start()
     {
         // Initialize private variables
-        playPlaneAnimation = true;
+        playPlaneAnimation = false;
         currentAirplaneComponents = new List<GameObject>();
         smoothComponents = new List<Mesh>();
         flatComponents = new List<GameObject>();
