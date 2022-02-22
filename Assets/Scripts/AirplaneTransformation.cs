@@ -39,6 +39,7 @@ public class AirplaneTransformation : MonoBehaviour
 
     
     // Private variables
+    private Vector3 iniRotation;
     private List<GameObject> currentAirplaneComponents;
     private List<Mesh> smoothComponents;
     private List<GameObject> flatComponents;
@@ -47,15 +48,12 @@ public class AirplaneTransformation : MonoBehaviour
     private bool playPlaneAnimation;
     private float animTime;
 
-    void OnPostRender()
-    {
-        UnityEngine.GL.wireframe = true;
 
-    }
     // Start is called before the first frame update
     void Start()
     {
         // Initialize private variables
+        iniRotation = AirplaneSmooth.transform.rotation.eulerAngles;
         playPlaneAnimation = false;
         currentAirplaneComponents = new List<GameObject>();
         smoothComponents = new List<Mesh>();
@@ -145,12 +143,16 @@ public class AirplaneTransformation : MonoBehaviour
     /// <returns></returns>
     private IEnumerator showSegment2(float iniWaitTime)
     {
+        // Reset plane to initial position
+        playPlaneAnimation = false;
+        AirplaneSmooth.transform.rotation = Quaternion.Euler(iniRotation.x, iniRotation.y, iniRotation.z);
+        
         //////// Display FLAT diffuse gray
         useFlatShading();
         applyMaterial(GrayDiffuse, null);
-        yield return new WaitForSeconds(iniWaitTime);
         
         //////// Animation: Zoom in 1 triangle
+        yield return new WaitForSeconds(iniWaitTime);
         CameraAnimator.Play("ZoomInTriangleAnim");
         yield return new WaitForSeconds(CameraAnimator.runtimeAnimatorController.animationClips[0].length);
         
@@ -260,6 +262,13 @@ public class AirplaneTransformation : MonoBehaviour
     /// <returns></returns>
     private IEnumerator showSegment3(float iniWaitTime)
     {
+        // Reset plane to initial position
+        playPlaneAnimation = false;
+        AirplaneSmooth.transform.rotation = Quaternion.Euler(iniRotation.x, iniRotation.y, iniRotation.z);
+        // Use Flat Metal Gray
+        useFlatShading();
+        applyMaterial(GrayMetal, null);
+
         //////// Animation: Zoom in 2 triangles
         yield return new WaitForSeconds(iniWaitTime); //TODO: Change initial wait time to begin action
         CameraAnimator.Play("ZoomInTriangleAnim2");
