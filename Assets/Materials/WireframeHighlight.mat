@@ -7,7 +7,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: Wireframe
+  m_Name: WireframeHighlight
   m_Shader: {fileID: 4800000, guid: a6dca80fb4b410c45975c0f15c70f4b6, type: 3}
   m_ShaderKeywords: 
   m_LightmapFlags: 4
@@ -82,7 +82,7 @@ Material:
     - _SrcBlend: 1
     - _Thickness: 1.5
     - _UVSec: 0
-    - _WireSize: 0.02
+    - _WireSize: 1
     - _ZMode: -1
     - _ZWrite: 1
     m_Colors:

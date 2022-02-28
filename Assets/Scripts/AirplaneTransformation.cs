@@ -19,6 +19,7 @@ public class AirplaneTransformation : MonoBehaviour
     public Material AirplaneDiffuseMat;
     public Material AirplaneMetalMat;
     public Material WireFrameMat;
+    public Material WireFrameHighlightMat;
     public Material GrayDiffuse;
     public Material GrayMetal;
     
@@ -44,6 +45,8 @@ public class AirplaneTransformation : MonoBehaviour
     private List<Mesh> smoothComponents;
     private List<GameObject> flatComponents;
     private LinkedList<GameObject> wireframeComponents;
+    private List<GameObject> highlightComponents;
+
     
     private bool playPlaneAnimation;
     private float animTime;
@@ -59,11 +62,13 @@ public class AirplaneTransformation : MonoBehaviour
         smoothComponents = new List<Mesh>();
         flatComponents = new List<GameObject>();
         wireframeComponents = new LinkedList<GameObject>();
+        highlightComponents = new List<GameObject>();
         foreach (Transform child in AirplaneSmooth.transform)
         {
             currentAirplaneComponents.Add(child.gameObject);
             Mesh curMesh = child.gameObject.GetComponent<MeshFilter>().mesh;
             smoothComponents.Add(deepCopy(curMesh));
+            highlightComponents.Add(child.gameObject);
             // wireframeComponents.Add(new GameObject("Wireframe"));
         }
         
@@ -151,6 +156,11 @@ public class AirplaneTransformation : MonoBehaviour
         useFlatShading();
         applyMaterial(GrayDiffuse, null);
         
+        //////// Highlight 1 triangle
+        GameObject highlightObject = highlightTriangle();
+        
+
+        
         //////// Animation: Zoom in 1 triangle
         yield return new WaitForSeconds(iniWaitTime);
         CameraAnimator.Play("ZoomInTriangleAnim");
@@ -171,7 +181,9 @@ public class AirplaneTransformation : MonoBehaviour
                 updatedVertices[i] = 0;
             }
             m.triangles = updatedVertices;
+            
         }
+        applyMaterial(GrayDiffuse, null);
         
         // Get the necessary vertices position of the triangle
         Mesh mesh = currentAirplaneComponents[0].GetComponent<MeshFilter>().mesh;
@@ -237,7 +249,7 @@ public class AirplaneTransformation : MonoBehaviour
         
         //////// Change material (from diffuse gray) to metal gray after 5 seconds (half of "MoveLight2" animation)
         yield return new WaitForSeconds(5);
-        applyMaterial(GrayMetal, GrayMetal);
+        applyMaterial(GrayMetal, null);
         
         //////// // Zoom out, after 5 more seconds (end of "MoveLight2")
         yield return new WaitForSeconds(5); 
@@ -248,12 +260,17 @@ public class AirplaneTransformation : MonoBehaviour
         cameraIcon.SetActive(false);
         disableVector(normalizedNormal);
         disableVector(viewVector);
+        //////// Un-highlight 1 triangle
+        Destroy(highlightObject);
         
         ////////  Fade in airplane
         yield return new WaitForSeconds(iniWaitTime); //TODO: Change initial wait time to begin action
         useFlatShading();
     }
-    
+
+   
+
+
     // TODO: Modify segment 3's animation
     /// <summary>
     /// Show animation for segment 3: ZOOM IN 2 TRIANGLES, SHOW INTERPOLATED NORMALS.
@@ -411,14 +428,8 @@ public class AirplaneTransformation : MonoBehaviour
         foreach (var component in currentAirplaneComponents)
         {
             Material[] compMats = component.GetComponent<MeshRenderer>().materials;
-            if (mat1 == null)
-            {
-                component.GetComponent<MeshRenderer>().enabled = false;
-            }
-            else
-            {
-                component.GetComponent<MeshRenderer>().enabled = true;
-            }
+            component.GetComponent<MeshRenderer>().enabled = mat1 != null;
+            compMats[0] = mat1;
             
             if (mat2 != null && mat2.name == "Wireframe")
             {
@@ -455,11 +466,62 @@ public class AirplaneTransformation : MonoBehaviour
                     Destroy(wireframeObject);
                     wireframeComponents.Remove(wireframeObject);
                 }
+                compMats[1] = mat2;
             }
-            compMats[0] = mat1;
-            compMats[1] = mat2;
             component.GetComponent<MeshRenderer>().materials = compMats;
         }
+    }
+    
+    private GameObject  highlightTriangle()
+    {
+        GameObject wireframeObject = null;
+
+        foreach (var comp2 in highlightComponents)
+        {
+            Mesh m2 = comp2.GetComponent<MeshFilter>().mesh;
+            var updatedVertices2 = m2.triangles;
+            var originalVertices = m2.triangles;
+            for (int i = 0; i < m2.triangles.Length; i++)
+            {
+                if (m2.name.StartsWith("Chassis.002"))
+                {
+                    if (i >= 66 && i <= 68) continue;
+                }
+
+                updatedVertices2[i] = 0;
+            }
+
+            m2.triangles = updatedVertices2;
+            Mesh m3 = deepCopy(m2);
+            if (m2.name.StartsWith("Chassis.002"))
+            {
+                comp2.GetComponent<MeshFilter>().mesh = m3;
+                wireframeObject = new GameObject();
+                wireframeObject.transform.SetParent(comp2.transform);
+                wireframeObject.transform.localPosition = Vector3.zero;
+                wireframeObject.transform.localScale = new Vector3(1, 1, 1);
+                wireframeObject.transform.localRotation = Quaternion.identity;
+                Mesh bakedMesh = BakeMesh(comp2.GetComponent<MeshFilter>().sharedMesh);
+                if (wireframeObject.GetComponent<MeshRenderer>() == null)
+                {
+                    wireframeObject.AddComponent<MeshRenderer>();
+                    wireframeObject.AddComponent<MeshFilter>();
+                    wireframeObject.GetComponent<MeshFilter>().sharedMesh = deepCopy(bakedMesh);
+                }
+               
+                Material[] mats = wireframeObject.GetComponent<MeshRenderer>().materials;
+                mats[0] = WireFrameHighlightMat;
+                wireframeObject.GetComponent<MeshRenderer>().materials = mats;
+                
+                comp2.GetComponent<MeshFilter>().mesh = m2;
+
+            }
+            
+            m2.triangles = originalVertices;
+
+        }
+
+        return wireframeObject;
     }
     
     private void useSmoothShading()
